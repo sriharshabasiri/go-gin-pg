@@ -1,129 +1,99 @@
-import React, { useState, useEffect } from 'react';
+package main
 
-const RefreshDetails = () => {
-  const [refreshes, setRefreshes] = useState([]);
-  const [newRefresh, setNewRefresh] = useState({
-    environment: '',
-    sl_no: '',
-    date_of_refresh: '',
-    code_base: '',
-    change_ticket: '',
-    free_field_1: '',
-    free_field_2: '',
-    free_field_3: '',
-    del_flg: false,
-    r_mod_time: '',
-    r_cre_time: '',
-  });
+import (
+	"database/sql"
+	"fmt"
+	"log"
+	"net/http"
+	"time"
 
-  const fetchRefreshes = async () => {
-    try {
-      const response = await fetch('your_api_url_for_get_refreshes');
-      const data = await response.json();
-      setRefreshes(data);
-    } catch (error) {
-      console.error('Error fetching refreshes:', error);
-    }
-  };
+	"github.com/gin-gonic/gin"
+	_ "github.com/lib/pq"
+)
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    // Handle checkbox separately
-    const newValue = type === 'checkbox' ? checked : value;
+type Refresh struct {
+	Environment    string    `json:"environment"`
+	SLNo           string    `json:"sl_no"`
+	DateOfRefresh  time.Time `json:"date_of_refresh"`
+	CodeBase       string    `json:"code_base"`
+	ChangeTicket   string    `json:"change_ticket"`
+	FreeField1     string    `json:"free_field_1"`
+	FreeField2     string    `json:"free_field_2"`
+	FreeField3     string    `json:"free_field_3"`
+	DelFlag        bool      `json:"del_flg"`
+	RModTime       string    `json:"r_mod_time"`
+	RCreTime       string    `json:"r_cre_time"`
+}
 
-    setNewRefresh((prevRefresh) => ({
-      ...prevRefresh,
-      [name]: newValue,
-    }));
-  };
+func main() {
+	router := gin.Default()
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch('your_api_url_for_post_refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newRefresh),
-      });
+	// Set up database connection
+	db, err := sql.Open("postgres", "your_database_connection_string")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
 
-      if (response.ok) {
-        // Refresh the list after successful submission
-        fetchRefreshes();
-        setNewRefresh({
-          environment: '',
-          sl_no: '',
-          date_of_refresh: '',
-          code_base: '',
-          change_ticket: '',
-          free_field_1: '',
-          free_field_2: '',
-          free_field_3: '',
-          del_flg: false,
-          r_mod_time: '',
-          r_cre_time: '',
-        });
-      } else {
-        console.error('Failed to submit refresh details');
-      }
-    } catch (error) {
-      console.error('Error submitting refresh details:', error);
-    }
-  };
+	// Endpoint to get refresh details
+	router.GET("/api/refreshes", func(c *gin.Context) {
+		var refreshes []Refresh
 
-  useEffect(() => {
-    // Fetch refreshes when the component mounts
-    fetchRefreshes();
-  }, []);
+		rows, err := db.Query("SELECT * FROM refresh_table")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch refresh details"})
+			return
+		}
+		defer rows.Close()
 
-  return (
-    <div>
-      <h2>Refresh Details</h2>
+		for rows.Next() {
+			var refresh Refresh
+			err := rows.Scan(
+				&refresh.Environment,
+				&refresh.SLNo,
+				&refresh.DateOfRefresh,
+				&refresh.CodeBase,
+				&refresh.ChangeTicket,
+				&refresh.FreeField1,
+				&refresh.FreeField2,
+				&refresh.FreeField3,
+				&refresh.DelFlag,
+				&refresh.RModTime,
+				&refresh.RCreTime,
+			)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			refreshes = append(refreshes, refresh)
+		}
 
-      {/* Display the list of refreshes in a table */}
-      <table>
-        <thead>
-          <tr>
-            <th>Environment</th>
-            <th>SL No</th>
-            <th>Date of Refresh</th>
-            <th>Code Base</th>
-            <th>Change Ticket</th>
-            <th>Free Field 1</th>
-            <th>Free Field 2</th>
-            <th>Free Field 3</th>
-            <th>Delete Flag</th>
-            <th>R Modification Time</th>
-            <th>R Creation Time</th>
-          </tr>
-        </thead>
-        <tbody>
-          {refreshes.map((refresh) => (
-            <tr key={refresh.sl_no}>
-              {/* Display relevant details in each column */}
-              <td>{refresh.environment}</td>
-              <td>{refresh.sl_no}</td>
-              <td>{refresh.date_of_refresh}</td>
-              <td>{refresh.code_base}</td>
-              <td>{refresh.change_ticket}</td>
-              <td>{refresh.free_field_1}</td>
-              <td>{refresh.free_field_2}</td>
-              <td>{refresh.free_field_3}</td>
-              <td>{refresh.del_flg ? 'Yes' : 'No'}</td>
-              <td>{refresh.r_mod_time}</td>
-              <td>{refresh.r_cre_time}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+		c.JSON(http.StatusOK, refreshes)
+	})
 
-      {/* Form for submitting new refresh details */}
-      <form onSubmit={handleSubmit}>
-        {/* ... (unchanged) */}
-      </form>
-    </div>
-  );
-};
+	// Endpoint to create a new refresh
+	router.POST("/api/refreshes", func(c *gin.Context) {
+		var newRefresh Refresh
+		if err := c.ShouldBindJSON(&newRefresh); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+			return
+		}
 
-export default RefreshDetails;
+		// Perform validation or additional logic as needed
+
+		_, err := db.Exec("INSERT INTO refresh_table (environment, sl_no, date_of_refresh, code_base, change_ticket, "+
+			"free_field_1, free_field_2, free_field_3, del_flg, r_mod_time, r_cre_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+			newRefresh.Environment, newRefresh.SLNo, newRefresh.DateOfRefresh, newRefresh.CodeBase, newRefresh.ChangeTicket,
+			newRefresh.FreeField1, newRefresh.FreeField2, newRefresh.FreeField3, newRefresh.DelFlag,
+			newRefresh.RModTime, newRefresh.RCreTime)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create refresh"})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{"message": "Refresh created successfully"})
+	})
+
+	router.Run(":8080")
+}
