@@ -1,71 +1,69 @@
-package main
+import React, { useState } from 'react';
 
-import (
-	"database/sql"
-	"fmt"
-	"log"
-	"net/http"
-	"os"
+const FileDeployList = () => {
+  const [filename, setFilename] = useState('');
+  const [patchList, setPatchList] = useState([]);
+  const [error, setError] = useState(null);
 
-	"github.com/gin-gonic/gin"
-	_ "github.com/godror/godror"
-)
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-type PatchDetails struct {
-	DeployFile    string `json:"deploy_file"`
-	SrcFileSize   int    `json:"src_file_size"`
-	PatchID       int    `json:"patch_id"`
-	ReleaseID     int    `json:"release_id"`
-	ModificationTime string `json:"mod_time"`
-}
+    try {
+      const response = await fetch(`http://localhost:8080/patch-list?filename=${filename}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
 
-func main() {
-	// Initialize Oracle DB connection
-	db, err := sql.Open("godror", "your_oracle_connection_string")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
+      const data = await response.json();
+      setPatchList(data);
+      setError(null);
+    } catch (error) {
+      setError('Failed to fetch patch list.');
+      console.error(error);
+    }
+  };
 
-	// Create a new Gin router
-	r := gin.Default()
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>
+          Filename:
+          <input type="text" value={filename} onChange={(e) => setFilename(e.target.value)} />
+        </label>
+        <button type="submit">Get File Deploy List</button>
+      </form>
 
-	// Define the GET endpoint to fetch the patch list based on the provided filename
-	r.GET("/patch-list", func(c *gin.Context) {
-		// Get the filename from the query parameters
-		filename := c.Query("filename")
+      {error && <p style={{ color: 'red' }}>{error}</p>}
 
-		// Query the database to fetch the patch list
-		rows, err := db.Query(`
-			SELECT deploy_file, src_file_size, patch_id, release_id, mod_time
-			FROM apdmrhel.dfs_adm_rep
-			WHERE deploy_file = $1 AND status = 'D'
-			ORDER BY mod_time DESC
-		`, filename)
+      {patchList.length > 0 && (
+        <div>
+          <h2>File Deploy List:</h2>
+          <table border="1">
+            <thead>
+              <tr>
+                <th>Deploy File</th>
+                <th>Source File Size</th>
+                <th>Patch ID</th>
+                <th>Release ID</th>
+                <th>Modification Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {patchList.map((patch) => (
+                <tr key={patch.patch_id}>
+                  <td>{patch.deploy_file}</td>
+                  <td>{patch.src_file_size}</td>
+                  <td>{patch.patch_id}</td>
+                  <td>{patch.release_id}</td>
+                  <td>{patch.mod_time}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
 
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch patch list"})
-			return
-		}
-		defer rows.Close()
-
-		var patchList []PatchDetails
-
-		// Iterate over the rows and populate the patchList
-		for rows.Next() {
-			var patch PatchDetails
-			err := rows.Scan(&patch.DeployFile, &patch.SrcFileSize, &patch.PatchID, &patch.ReleaseID, &patch.ModificationTime)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-			patchList = append(patchList, patch)
-		}
-
-		// Return the patchList as JSON
-		c.JSON(http.StatusOK, patchList)
-	})
-
-	// Run the server on port 8080
-	r.Run(":8080")
-}
+export default FileDeployList;
