@@ -1,76 +1,46 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Sample HTML Email</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            color: #333;
-        }
-        h1 {
-            color: #4CAF50;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            padding: 10px;
-            text-align: left;
-            border: 1px solid #ddd;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        .success {
-            color: green;
-        }
-        .failure {
-            color: red;
-        }
-        .slno {
-            width: 10%;
-        }
-        .service {
-            width: 40%;
-        }
-        .status {
-            width: 50%;
-        }
-    </style>
-</head>
-<body>
-    <h1>Service Status Report</h1>
-    <p>This is a sample HTML email with a dynamically populated status table. Below is the table:</p>
-    <table>
-        <tr>
-            <th class="slno">Sl. No.</th>
-            <th class="service">Service</th>
-            <th class="status">Status</th>
-        </tr>
-        <tr>
-            <td>1</td>
-            <td>Test</td>
-            <td class="[[SERVICE1_STATUS_CLASS]]">[[SERVICE1_STATUS]]</td> <!-- Placeholder for the status and color -->
-        </tr>
-        <tr>
-            <td>2</td>
-            <td>Test</td>
-            <td class="[[SERVICE2_STATUS_CLASS]]">[[SERVICE2_STATUS]]</td> <!-- Placeholder for the status and color -->
-        </tr>
-        <tr>
-            <td>3</td>
-            <td>Test</td>
-            <td class="[[SERVICE3_STATUS_CLASS]]">[[SERVICE3_STATUS]]</td> <!-- Placeholder for the status and color -->
-        </tr>
-    </table>
-    <p>Thank you for checking the service status!</p>
-</body>
-</html>
+#!/bin/bash
+
+# Define email details
+SUBJECT="Service Status Report"
+FROM_EMAIL="sender@example.com"
+TO_EMAIL="recipient@example.com"
+
+# Define status values for the services
+SERVICE1_STATUS="$1"  # Pass as argument or set directly (e.g., "Success" or "Failure")
+SERVICE2_STATUS="$2"  # Pass as argument or set directly
+SERVICE3_STATUS="$3"  # Pass as argument or set directly
+
+# Determine CSS class based on status
+SERVICE1_STATUS_CLASS=$( [[ "$SERVICE1_STATUS" == "Success" ]] && echo "success" || echo "failure" )
+SERVICE2_STATUS_CLASS=$( [[ "$SERVICE2_STATUS" == "Success" ]] && echo "success" || echo "failure" )
+SERVICE3_STATUS_CLASS=$( [[ "$SERVICE3_STATUS" == "Success" ]] && echo "success" || echo "failure" )
+
+# Load the HTML template and replace placeholders
+TEMPLATE_PATH="email_template.html"
+OUTPUT_PATH="email.html"
+
+# Replace placeholders in the template
+sed -e "s/\[\[SERVICE1_STATUS\]\]/$SERVICE1_STATUS/g" \
+    -e "s/\[\[SERVICE1_STATUS_CLASS\]\]/$SERVICE1_STATUS_CLASS/g" \
+    -e "s/\[\[SERVICE2_STATUS\]\]/$SERVICE2_STATUS/g" \
+    -e "s/\[\[SERVICE2_STATUS_CLASS\]\]/$SERVICE2_STATUS_CLASS/g" \
+    -e "s/\[\[SERVICE3_STATUS\]\]/$SERVICE3_STATUS/g" \
+    -e "s/\[\[SERVICE3_STATUS_CLASS\]\]/$SERVICE3_STATUS_CLASS/g" \
+    "$TEMPLATE_PATH" > "$OUTPUT_PATH"
+
+# Define the path to the Python script
+PYTHON_SCRIPT_PATH="/path/to/send_email.py"  # Update this to the correct path
+
+# Check if the Python script exists
+if [[ -f "$PYTHON_SCRIPT_PATH" ]]; then
+    echo "Running the Python script to send the email..."
+    
+    # Run the Python script with arguments
+    python3 "$PYTHON_SCRIPT_PATH" --subject "$SUBJECT" --from_email "$FROM_EMAIL" --to_email "$TO_EMAIL"
+else
+    echo "Python script not found at $PYTHON_SCRIPT_PATH"
+    exit 1
+fi
 import React, { useState } from 'react';
 
 const FileDeployList = () => {
